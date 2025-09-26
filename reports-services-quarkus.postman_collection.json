@@ -1,0 +1,75 @@
+{
+	"info": {
+		"_postman_id": "b7bf4141-0241-4385-9524-c413becb7584",
+		"name": "reports-services-quarkus",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "19442902"
+	},
+	"item": [
+		{
+			"name": "reports-balances-customerId",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8083/reports/balances?customerId=68c3c221ed0eda43227fd7b1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8083",
+					"path": [
+						"reports",
+						"balances"
+					],
+					"query": [
+						{
+							"key": "customerId",
+							"value": "68c3c221ed0eda43227fd7b1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "reports-movements-accountId",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8083/reports/movements?accountId=68c9707f823bbed1103f0a59",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8083",
+					"path": [
+						"reports",
+						"movements"
+					],
+					"query": [
+						{
+							"key": "accountId",
+							"value": "68c9707f823bbed1103f0a59"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
