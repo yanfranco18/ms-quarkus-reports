@@ -20,14 +20,11 @@
 					}
 				],
 				"url": {
-					"raw": "http://localhost:8083/reports/balances?customerId=68c3c221ed0eda43227fd7b1",
-					"protocol": "http",
+					"raw": "{{URL_BASE}}/balances?customerId=68c3c221ed0eda43227fd7b1",
 					"host": [
-						"localhost"
+						"{{URL_BASE}}"
 					],
-					"port": "8083",
 					"path": [
-						"reports",
 						"balances"
 					],
 					"query": [
@@ -51,14 +48,11 @@
 					}
 				],
 				"url": {
-					"raw": "http://localhost:8083/reports/movements?accountId=68c9707f823bbed1103f0a59",
-					"protocol": "http",
+					"raw": "{{URL_BASE}}/movements?accountId=68c9707f823bbed1103f0a59",
 					"host": [
-						"localhost"
+						"{{URL_BASE}}"
 					],
-					"port": "8083",
 					"path": [
-						"reports",
 						"movements"
 					],
 					"query": [
@@ -70,6 +64,138 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "200-reports-commissions-startDate-&-endDate",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{URL_BASE}}/commissions?startDate=2025-10-01&endDate=2025-10-31",
+					"host": [
+						"{{URL_BASE}}"
+					],
+					"path": [
+						"commissions"
+					],
+					"query": [
+						{
+							"key": "startDate",
+							"value": "2025-10-01"
+						},
+						{
+							"key": "endDate",
+							"value": "2025-10-31"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "400-reports-commissions-startDate-&-endDate",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{URL_BASE}}/commissions?startDate=2025-10-01",
+					"host": [
+						"{{URL_BASE}}"
+					],
+					"path": [
+						"commissions"
+					],
+					"query": [
+						{
+							"key": "startDate",
+							"value": "2025-10-01"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "404-reports-commissions-startDate-&-endDate",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{URL_BASE}}/commissions?startDate=2026-01-01&endDate=2026-01-31",
+					"host": [
+						"{{URL_BASE}}"
+					],
+					"path": [
+						"commissions"
+					],
+					"query": [
+						{
+							"key": "startDate",
+							"value": "2026-01-01"
+						},
+						{
+							"key": "endDate",
+							"value": "2026-01-31"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "URL_BASE",
+			"value": "",
+			"type": "default"
 		}
 	]
 }

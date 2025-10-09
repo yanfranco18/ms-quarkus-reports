@@ -1,5 +1,6 @@
 package com.bancario.reports.resource;
 
+import com.bancario.reports.dto.CommissionReportItem;
 import com.bancario.reports.service.ReportsService;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -17,6 +18,9 @@ import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.reactive.RestQuery;
+
+import java.time.LocalDate;
 
 @Slf4j
 @Path("/reports")
@@ -104,6 +108,61 @@ public class ReportsResource {
                 .onFailure().recoverWithItem(error -> {
                     log.error("An error occurred while retrieving transactions: {}", error.getMessage());
                     return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("An unexpected error occurred.").build();
+                });
+    }
+
+    @GET
+    @Path("/commissions")
+    @Operation(summary = "Generar reporte agregado de comisiones por producto",
+            description = "Consulta la suma total de las comisiones cobradas, agrupadas por producto, dentro de un rango de fechas.")
+    @APIResponses(value = {
+            @APIResponse(
+                    responseCode = "200",
+                    description = "Reporte de comisiones generado con éxito",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(implementation = CommissionReportItem.class))
+            ),
+            @APIResponse(responseCode = "400", description = "Fechas inválidas, nulas o rango incorrecto (startDate posterior a endDate)."),
+            @APIResponse(responseCode = "404", description = "No se encontraron comisiones en el periodo."),
+            @APIResponse(responseCode = "500", description = "Error interno del servidor o fallo de comunicación con el Transaction Service.")
+    })
+    public Uni<Response> getAggregatedCommissionsReport(
+            @Parameter(description = "Fecha de inicio del periodo (YYYY-MM-DD)", required = true, example = "2025-01-01")
+            @RestQuery LocalDate startDate,
+
+            @Parameter(description = "Fecha de fin del periodo (YYYY-MM-DD)", required = true, example = "2025-01-31")
+            @RestQuery LocalDate endDate) {
+
+        log.info("API | Solicitud de reporte de comisiones recibida. Rango: {} a {}", startDate, endDate);
+
+        // 1. Validación de Entrada (Lógica Fail Fast)
+        if (startDate == null || endDate == null || startDate.isAfter(endDate)) {
+            log.warn("API | Validación fallida: Rango de fechas inválido. Inicio: {}, Fin: {}", startDate, endDate);
+            String message = (startDate == null || endDate == null)
+                    ? "startDate y endDate son requeridos."
+                    : "startDate no puede ser posterior a endDate.";
+
+            return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity(message).build());
+        }
+        // 2. Delegación a la Capa de Servicio
+        return reportsService.generateCommissionsReport(startDate, endDate)
+                .onItem().transform(reportItems -> {
+
+                    if (reportItems.isEmpty()) {
+                        log.warn("API | No se encontraron comisiones en el rango {} a {}", startDate, endDate);
+                        return Response.status(Response.Status.NOT_FOUND).entity("No se encontraron comisiones para generar el reporte.").build();
+                    }
+
+                    log.info("API | Reporte generado con éxito. {} productos agregados.", reportItems.size());
+                    return Response.ok(reportItems).build();
+                })
+                .onFailure().recoverWithItem(error -> {
+                    // 3. Manejo de Errores (Error de servicio/comunicación)
+                    log.error("API | Error interno al generar el reporte: {}", error.getMessage(), error);
+                    return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                            .entity("Error al procesar el reporte: " + error.getMessage())
+                            .build();
                 });
     }
 }
