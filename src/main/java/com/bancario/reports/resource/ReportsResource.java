@@ -1,6 +1,7 @@
 package com.bancario.reports.resource;
 
 import com.bancario.reports.dto.CommissionReportItem;
+import com.bancario.reports.dto.DailyAverageBalanceReportDto;
 import com.bancario.reports.service.ReportsService;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -163,6 +164,45 @@ public class ReportsResource {
                     return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                             .entity("Error al procesar el reporte: " + error.getMessage())
                             .build();
+                });
+    }
+
+    /**
+     * Endpoint para generar el reporte del Saldo Promedio Diario (SPD) de un cliente
+     * para un rango de fechas.
+     * La respuesta es reactiva y las excepciones (ej. 400 Bad Request) son manejadas
+     * por el Global Exception Mapper del framework.
+     * * @param customerId El ID del cliente.
+     * @param startDate La fecha de inicio del rango (formato YYYY-MM-DD).
+     * @param endDate La fecha de fin del rango (formato YYYY-MM-DD).
+     * @return Uni que emite el reporte final DailyAverageBalanceReportDto.
+     */
+    @GET
+    @Path("/daily-average-balance")
+    @Operation(summary = "Calcula el Saldo Promedio Diario (SPD) para un cliente.",
+            description = "Orquesta la obtención del historial y el cálculo del promedio.")
+    @APIResponse(responseCode = "200", description = "Reporte SPD generado con éxito.",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON,
+                    schema = @Schema(implementation = DailyAverageBalanceReportDto.class)))
+    @APIResponse(responseCode = "400", description = "Parámetros de consulta o fechas inválidas.")
+    @APIResponse(responseCode = "500", description = "Fallo interno durante la orquestación o cálculo.")
+    public Uni<DailyAverageBalanceReportDto> calculateDailyAverageBalance(
+            @Parameter(description = "ID único del cliente.")
+            @QueryParam("customerId")
+            String customerId,
+
+            @Parameter(description = "Fecha de inicio del periodo (YYYY-MM-DD).")
+            @QueryParam("startDate")
+            LocalDate startDate,
+
+            @Parameter(description = "Fecha de fin del periodo (YYYY-MM-DD).")
+            @QueryParam("endDate")
+            LocalDate endDate
+    ) {
+        log.info("SPD Resource: Solicitud de cálculo recibida para customerId: {}", customerId);
+        return reportsService.generateDailyAverageBalanceReport(customerId, startDate, endDate)
+                .onItem().invoke(report -> {
+                    log.debug("SPD Resource: Cálculo finalizado. Promedio retornado: {}", report.dailyAverageBalance());
                 });
     }
 }

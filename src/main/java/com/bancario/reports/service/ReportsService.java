@@ -2,6 +2,7 @@ package com.bancario.reports.service;
 
 import com.bancario.reports.dto.BalanceReportDTO;
 import com.bancario.reports.dto.CommissionReportItem;
+import com.bancario.reports.dto.DailyAverageBalanceReportDto;
 import com.bancario.reports.dto.TransactionResponse;
 import io.smallrye.mutiny.Uni;
 
@@ -33,4 +34,20 @@ public interface ReportsService {
      * @return Uni que emite una lista del reporte final agregado (CommissionReportItem).
      */
     Uni<List<CommissionReportItem>> generateCommissionsReport(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Genera el reporte del Saldo Promedio Diario (SPD) para un cliente,
+     * orquestando la obtención del historial de saldos y realizando el cálculo final.
+     *
+     * @param customerId El ID del cliente a consultar.
+     * @param startDate La fecha de inicio del periodo.
+     * @param endDate La fecha de fin del periodo.
+     * @return Uni que emite el reporte final DailyAverageBalanceReportDto.
+     * @throws IllegalArgumentException Si alguno de los parámetros de entrada es inválido.
+     */
+    Uni<DailyAverageBalanceReportDto> generateDailyAverageBalanceReport(
+            String customerId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }

@@ -165,6 +165,42 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "daily-average-balance-customerId&startDate&endDate",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{URL_BASE}}/daily-average-balance?customerId=68dd2f139efa39ca431a4e3f&startDate=2025-10-01&endDate=2025-10-31",
+					"host": [
+						"{{URL_BASE}}"
+					],
+					"path": [
+						"daily-average-balance"
+					],
+					"query": [
+						{
+							"key": "customerId",
+							"value": "68dd2f139efa39ca431a4e3f"
+						},
+						{
+							"key": "startDate",
+							"value": "2025-10-01"
+						},
+						{
+							"key": "endDate",
+							"value": "2025-10-31"
+						}
+					]
+				}
+			},
+			"response": []
 		}
 	],
 	"event": [
