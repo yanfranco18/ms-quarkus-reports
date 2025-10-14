@@ -4,11 +4,15 @@ import com.bancario.reports.client.AccountServiceRestClient;
 import com.bancario.reports.client.TransactionsServiceRestClient;
 import com.bancario.reports.dto.*;
 import com.bancario.reports.enums.ProductType;
+import com.bancario.reports.exception.ServiceUnavailableException;
 import com.bancario.reports.service.ReportsService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
+import org.eclipse.microprofile.faulttolerance.Fallback;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.math.BigDecimal;
@@ -33,6 +37,9 @@ public class ReportsServiceImpl implements ReportsService {
     TransactionsServiceRestClient transactionsServiceRestClient;
 
     @Override
+    @Timeout
+    @CircuitBreaker
+    @Fallback(fallbackMethod = "fallbackQuickQuery")
     public Uni<List<BalanceReportDTO>> getBalancesByCustomer(String customerId) {
         log.info("Starting report generation for customer with ID: {}", customerId);
 
@@ -47,6 +54,9 @@ public class ReportsServiceImpl implements ReportsService {
     }
 
     @Override
+    @Timeout
+    @CircuitBreaker
+    @Fallback(fallbackMethod = "fallbackQuickQuery")
     public Uni<List<TransactionResponse>> getTransactionsByAccountId(String accountId) {
         log.info("Starting transaction report for account ID: {}", accountId);
 
@@ -58,6 +68,9 @@ public class ReportsServiceImpl implements ReportsService {
     }
 
     @Override
+    @Timeout
+    @CircuitBreaker
+    @Fallback(fallbackMethod = "fallbackCommissionsReport")
     public Uni<List<CommissionReportItem>> generateCommissionsReport(LocalDate startDate, LocalDate endDate) {
 
         log.info("SERVICE | Iniciando generación de reporte para rango: {} a {}", startDate, endDate);
@@ -89,6 +102,9 @@ public class ReportsServiceImpl implements ReportsService {
      * @throws IllegalArgumentException Si el ID del cliente o el rango de fechas es inválido (Mapeado a 400 por el Resource).
      */
     @Override
+    @Timeout
+    @CircuitBreaker
+    @Fallback(fallbackMethod = "fallbackDailyAverageBalanceReport")
     public Uni<DailyAverageBalanceReportDto> generateDailyAverageBalanceReport(
             String customerId,
             LocalDate startDate,
@@ -255,5 +271,31 @@ public class ReportsServiceImpl implements ReportsService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    // FALLBACK unificado para las consultas rápidas (1 y 2)
+    public Uni<List<?>> fallbackQuickQuery(String id, Throwable failure) {
+        log.error("FALLBACK ACTIVO (Consulta Rápida) para ID {}. Causa: {}", id, failure.getMessage());
+        String errorMessage = "El servicio de reportes rápidos está temporalmente no disponible.";
+        return Uni.createFrom().failure(new ServiceUnavailableException(errorMessage, failure));
+    }
+
+    // FALLBACK para generateCommissionsReport
+    public Uni<List<CommissionReportItem>> fallbackCommissionsReport(LocalDate startDate, LocalDate endDate, Throwable failure) {
+        log.error("FALLBACK ACTIVO (Comisiones) desde {} hasta {}. Causa: {}", startDate, endDate, failure.getMessage());
+        String errorMessage = "El servicio de reporte de comisiones está inoperativo.";
+        return Uni.createFrom().failure(new ServiceUnavailableException(errorMessage, failure));
+    }
+
+    // FALLBACK para generateDailyAverageBalanceReport
+    public Uni<DailyAverageBalanceReportDto> fallbackDailyAverageBalanceReport(
+            String customerId,
+            LocalDate startDate,
+            LocalDate endDate,
+            Throwable failure
+    ) {
+        log.error("FALLBACK ACTIVO (SPD) para cliente {}. Causa: {}", customerId, failure.getMessage());
+        String errorMessage = "El servicio de reporte SPD está inoperativo. No se pudieron obtener datos históricos.";
+        return Uni.createFrom().failure(new ServiceUnavailableException(errorMessage, failure));
     }
 }

@@ -8,6 +8,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 import java.time.LocalDate;
@@ -18,6 +19,7 @@ import java.util.List;
 public interface TransactionsServiceRestClient {
 
     @GET
+    @Retry
     @Produces(MediaType.APPLICATION_JSON)
     Uni<List<TransactionResponse>> getTransactionsByAccountId(@QueryParam("accountId") String accountId);
 
@@ -28,6 +30,7 @@ public interface TransactionsServiceRestClient {
      * @return Uni que emite una lista de CommissionReportDto.
      */
     @GET
+    @Retry
     @Path("/commissions")
     Uni<List<CommissionReportDto>> getCommissionsReportData(
             @QueryParam("startDate") LocalDate startDate,

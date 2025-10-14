@@ -26,6 +26,9 @@ public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
         } else if (exception instanceof MongoCommandException) {
             status = Response.Status.INTERNAL_SERVER_ERROR.getStatusCode();
             error = "Database Error";
+        } else if (exception instanceof ServiceUnavailableException) {
+            status = Response.Status.SERVICE_UNAVAILABLE.getStatusCode();
+            error = "Service Unavailable (Fault Tolerance)";
         } else {
             status = Response.Status.INTERNAL_SERVER_ERROR.getStatusCode();
             error = "Internal Server Error";

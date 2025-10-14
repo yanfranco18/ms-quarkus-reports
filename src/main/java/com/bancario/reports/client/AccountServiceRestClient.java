@@ -8,6 +8,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ import java.util.List;
 public interface AccountServiceRestClient {
 
     @GET
+    @Retry
     Uni<List<AccountResponse>> getAccountsByCustomer(@QueryParam("customerId") String customerId);
 
     /**
@@ -30,6 +32,7 @@ public interface AccountServiceRestClient {
      * @return Uni que emite una lista de DailyBalanceHistoryDto con los saldos diarios.
      */
     @GET
+    @Retry
     @Path("/daily-balances")
     Uni<List<DailyBalanceHistoryDto>> getDailyBalancesByCustomer(
             @QueryParam("customerId") String customerId,
