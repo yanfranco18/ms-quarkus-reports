@@ -1,6 +1,7 @@
 package com.bancario.reports.service.impl;
 
 import com.bancario.reports.client.AccountServiceRestClient;
+import com.bancario.reports.client.CustomerServiceRestClient;
 import com.bancario.reports.client.TransactionsServiceRestClient;
 import com.bancario.reports.dto.*;
 import com.bancario.reports.enums.ProductType;
@@ -17,6 +18,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -36,10 +38,14 @@ public class ReportsServiceImpl implements ReportsService {
     @RestClient
     TransactionsServiceRestClient transactionsServiceRestClient;
 
+    @Inject
+    @RestClient
+    CustomerServiceRestClient customerServiceRestClient;
+
     @Override
     @Timeout
     @CircuitBreaker
-    @Fallback(fallbackMethod = "fallbackQuickQuery")
+    @Fallback(fallbackMethod = "fallbackBalancesByCustomer")
     public Uni<List<BalanceReportDTO>> getBalancesByCustomer(String customerId) {
         log.info("Starting report generation for customer with ID: {}", customerId);
 
@@ -56,7 +62,7 @@ public class ReportsServiceImpl implements ReportsService {
     @Override
     @Timeout
     @CircuitBreaker
-    @Fallback(fallbackMethod = "fallbackQuickQuery")
+    @Fallback(fallbackMethod = "fallbackTransactionsByAccountId")
     public Uni<List<TransactionResponse>> getTransactionsByAccountId(String accountId) {
         log.info("Starting transaction report for account ID: {}", accountId);
 
@@ -130,6 +136,55 @@ public class ReportsServiceImpl implements ReportsService {
                 .onItem().transform(historyList ->
                         calculateDailyAverage(customerId, startDate, endDate, historyList)
                 );
+    }
+
+    /**
+     * Elabora un resumen consolidado del cliente orquestando llamadas a Customer y Account Services
+     * en paralelo para obtener datos personales y de productos.
+     * <p>
+     * Se aplica Resiliencia:
+     * <ul>
+     * <li>@Timeout: Usa reports-service.orchestration-summary.ms (2500ms) para proteger contra la latencia combinada.</li>
+     * <li>@CircuitBreaker: Aísla el método si la orquestación falla repetidamente.</li>
+     * <li>@Fallback: Lanza una ServiceUnavailableException (mapeada a HTTP 503 por el GlobalExceptionMapper).</li>
+     * </ul>
+     *
+     * @param customerId El ID del cliente.
+     * @return Uni que emite el ConsolidatedSummaryDTO.
+     */
+    @Override
+    @Timeout
+    @CircuitBreaker
+    @Fallback(fallbackMethod = "fallbackConsolidatedSummary")
+    public Uni<ConsolidatedSummaryDTO> getConsolidatedSummary(String customerId) {
+        log.info("SERVICE | Iniciando orquestación de resumen consolidado para cliente: {}", customerId);
+
+        // 1. Definir las dos llamadas REST que se ejecutarán en paralelo
+        Uni<CustomerResponse> customerUni = customerServiceRestClient.getCustomerById(customerId);
+        Uni<List<AccountResponse>> accountsUni = accountServiceRestClient.getAccountsByCustomer(customerId);
+
+        // 2. Orquestación reactiva: Combinar los resultados de forma eficiente
+        return Uni.combine().all().unis(customerUni, accountsUni)
+                .asTuple()
+                .onItem().transform(tuple -> {
+                    // Item1 es CustomerResponse, Item2 es List<AccountResponse>
+                    CustomerResponse customer = tuple.getItem1();
+                    List<AccountResponse> accounts = tuple.getItem2();
+
+                    // 3. Mapeo final: Construir el DTO consolidado
+                    log.debug("SERVICE | Consolidando {} productos para cliente {}", accounts.size(), customer.id());
+                    return ConsolidatedSummaryDTO.builder()
+                            .customerId(customer.id())
+                            .fullName(customer.firstName() + " " + customer.lastName())
+                            .products(accounts)
+                            .processingTimestamp(Instant.now().toString())
+                            .build();
+                })
+                .onFailure().invoke(failure -> {
+                    // Log detallado en caso de fallo antes de activar el Fallback
+                    log.error("SERVICE | Fallo en la orquestación consolidada para cliente {}. Causa: {}",
+                            customerId, failure.getMessage(), failure);
+                });
     }
 
     /**
@@ -273,21 +328,45 @@ public class ReportsServiceImpl implements ReportsService {
                 .collect(Collectors.toList());
     }
 
-    // FALLBACK unificado para las consultas rápidas (1 y 2)
-    public Uni<List<?>> fallbackQuickQuery(String id, Throwable failure) {
+    /**
+     * Fallback con la firma EXACTA para getBalancesByCustomer (Uni<List<BalanceReportDTO>>).
+     */
+    public Uni<List<BalanceReportDTO>> fallbackBalancesByCustomer(String customerId, Throwable failure) {
+        // Casting explícito: Le decimos al compilador que el Uni devuelto
+        // por la función privada es, a efectos de compilación, del tipo correcto.
+        @SuppressWarnings("unchecked")
+        Uni<List<BalanceReportDTO>> uni = (Uni<List<BalanceReportDTO>>) handleQuickQueryFallback(customerId, failure);
+        return uni;
+    }
+
+    /**
+     * Fallback con la firma EXACTA para getTransactionsByAccountId (Uni<List<TransactionResponse>>).
+     */
+    public Uni<List<TransactionResponse>> fallbackTransactionsByAccountId(String accountId, Throwable failure) {
+        // Casting explícito.
+        @SuppressWarnings("unchecked")
+        Uni<List<TransactionResponse>> uni = (Uni<List<TransactionResponse>>) handleQuickQueryFallback(accountId, failure);
+        return uni;
+    }
+
+    /**
+     * Lógica común que maneja el fallo de consultas rápidas y lanza la ServiceUnavailableException.
+     * El tipo de retorno es genérico (Uni) ya que siempre lanza una excepción.
+     */
+    private Uni handleQuickQueryFallback(String id, Throwable failure) {
         log.error("FALLBACK ACTIVO (Consulta Rápida) para ID {}. Causa: {}", id, failure.getMessage());
         String errorMessage = "El servicio de reportes rápidos está temporalmente no disponible.";
         return Uni.createFrom().failure(new ServiceUnavailableException(errorMessage, failure));
     }
 
-    // FALLBACK para generateCommissionsReport
+    //FALLBACK para generateCommissionsReport (Reporte Pesado - HTTP 503)
     public Uni<List<CommissionReportItem>> fallbackCommissionsReport(LocalDate startDate, LocalDate endDate, Throwable failure) {
         log.error("FALLBACK ACTIVO (Comisiones) desde {} hasta {}. Causa: {}", startDate, endDate, failure.getMessage());
-        String errorMessage = "El servicio de reporte de comisiones está inoperativo.";
+        String errorMessage = "El servicio de reporte de comisiones está inoperativo. No se pudieron obtener los datos brutos.";
         return Uni.createFrom().failure(new ServiceUnavailableException(errorMessage, failure));
     }
 
-    // FALLBACK para generateDailyAverageBalanceReport
+    //FALLBACK para generateDailyAverageBalanceReport (Orquestación Analítica - HTTP 503)
     public Uni<DailyAverageBalanceReportDto> fallbackDailyAverageBalanceReport(
             String customerId,
             LocalDate startDate,
@@ -296,6 +375,16 @@ public class ReportsServiceImpl implements ReportsService {
     ) {
         log.error("FALLBACK ACTIVO (SPD) para cliente {}. Causa: {}", customerId, failure.getMessage());
         String errorMessage = "El servicio de reporte SPD está inoperativo. No se pudieron obtener datos históricos.";
+        return Uni.createFrom().failure(new ServiceUnavailableException(errorMessage, failure));
+    }
+
+    /**
+     * Método Fallback de degradación para getConsolidatedSummary.
+     * Lanza una excepción global específica que es mapeada a HTTP 503 (Service Unavailable).
+     */
+    public Uni<ConsolidatedSummaryDTO> fallbackConsolidatedSummary(String customerId, Throwable failure) {
+        log.warn("FALLBACK ACTIVO | Resumen Consolidado para cliente {}. Causa: {}", customerId, failure.getMessage());
+        String errorMessage = "El servicio de resumen consolidado está inoperativo. No se pudo completar la orquestación de datos.";
         return Uni.createFrom().failure(new ServiceUnavailableException(errorMessage, failure));
     }
 }

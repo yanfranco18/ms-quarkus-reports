@@ -20,18 +20,23 @@ public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
         int status;
         String error;
 
-        if (exception instanceof IllegalArgumentException) {
-            status = Response.Status.BAD_REQUEST.getStatusCode();
-            error = "Bad Request";
-        } else if (exception instanceof MongoCommandException) {
-            status = Response.Status.INTERNAL_SERVER_ERROR.getStatusCode();
-            error = "Database Error";
-        } else if (exception instanceof ServiceUnavailableException) {
-            status = Response.Status.SERVICE_UNAVAILABLE.getStatusCode();
-            error = "Service Unavailable (Fault Tolerance)";
-        } else {
-            status = Response.Status.INTERNAL_SERVER_ERROR.getStatusCode();
-            error = "Internal Server Error";
+        switch (exception) {
+            case IllegalArgumentException illegalArgumentException -> {
+                status = Response.Status.BAD_REQUEST.getStatusCode();
+                error = "Bad Request";
+            }
+            case MongoCommandException mongoCommandException -> {
+                status = Response.Status.INTERNAL_SERVER_ERROR.getStatusCode();
+                error = "Database Error";
+            }
+            case ServiceUnavailableException serviceUnavailableException -> {
+                status = Response.Status.SERVICE_UNAVAILABLE.getStatusCode();
+                error = "Service Unavailable (Fault Tolerance)";
+            }
+            case null, default -> {
+                status = Response.Status.INTERNAL_SERVER_ERROR.getStatusCode();
+                error = "Internal Server Error";
+            }
         }
 
         ApiError apiError = ApiError.builder()

@@ -1,9 +1,6 @@
 package com.bancario.reports.service;
 
-import com.bancario.reports.dto.BalanceReportDTO;
-import com.bancario.reports.dto.CommissionReportItem;
-import com.bancario.reports.dto.DailyAverageBalanceReportDto;
-import com.bancario.reports.dto.TransactionResponse;
+import com.bancario.reports.dto.*;
 import io.smallrye.mutiny.Uni;
 
 import java.time.LocalDate;
@@ -50,4 +47,13 @@ public interface ReportsService {
             LocalDate startDate,
             LocalDate endDate
     );
+
+    /**
+     * Elabora un resumen consolidado del cliente, orquestando las llamadas a Customer y Account Services
+     * para obtener datos personales y de productos.
+     *
+     * @param customerId El ID del cliente.
+     * @return Uni que emite el ConsolidatedSummaryDTO.
+     */
+    Uni<ConsolidatedSummaryDTO> getConsolidatedSummary(String customerId);
 }

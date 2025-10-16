@@ -201,6 +201,52 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "reports-consolidated-customerId",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{URL_BASE}}/consolidated/68c3c258ed0eda43227fd7b3",
+					"host": [
+						"{{URL_BASE}}"
+					],
+					"path": [
+						"consolidated",
+						"68c3c258ed0eda43227fd7b3"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "400-reports-consolidated-customerId",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{URL_BASE}}/consolidated/null",
+					"host": [
+						"{{URL_BASE}}"
+					],
+					"path": [
+						"consolidated",
+						"null"
+					]
+				}
+			},
+			"response": []
 		}
 	],
 	"event": [

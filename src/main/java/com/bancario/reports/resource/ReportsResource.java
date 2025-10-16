@@ -1,14 +1,13 @@
 package com.bancario.reports.resource;
 
 import com.bancario.reports.dto.CommissionReportItem;
+import com.bancario.reports.dto.ConsolidatedSummaryDTO;
 import com.bancario.reports.dto.DailyAverageBalanceReportDto;
 import com.bancario.reports.service.ReportsService;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
@@ -204,5 +203,40 @@ public class ReportsResource {
                 .onItem().invoke(report -> {
                     log.debug("SPD Resource: Cálculo finalizado. Promedio retornado: {}", report.dailyAverageBalance());
                 });
+    }
+
+    /**
+     * Endpoint para obtener un resumen consolidado de un cliente, incluyendo datos personales
+     * y todos los productos bancarios asociados (cuentas).
+     *
+     * @param customerId El ID único del cliente.
+     * @return Uni que emite una respuesta HTTP 200 con el ConsolidatedSummaryDTO o un error 503/400.
+     */
+    @GET
+    @Path("/consolidated/{customerId}")
+    @Operation(
+            summary = "Obtener Resumen Consolidado del Cliente",
+            description = "Orquesta llamadas paralelas a Customer Service y Account Service para devolver un resumen integral del cliente y sus productos."
+    )
+    @APIResponse(
+            responseCode = "200",
+            description = "Resumen consolidado generado exitosamente.",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ConsolidatedSummaryDTO.class))
+    )
+    @APIResponse(
+            responseCode = "400",
+            description = "Parámetros de entrada inválidos (e.g., customerId nulo o formato incorrecto)."
+    )
+    @APIResponse(
+            responseCode = "503",
+            description = "Fallo de Resiliencia: La orquestación ha superado el Timeout o el Circuit Breaker está abierto."
+    )
+    public Uni<Response> getConsolidatedSummary(@PathParam("customerId") @NotNull String customerId) {
+        if (customerId.isBlank()) {
+            return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST)
+                    .entity("El ID del cliente no puede ser vacío.").build());
+        }
+        return reportsService.getConsolidatedSummary(customerId)
+                .onItem().transform(summary -> Response.ok(summary).build());
     }
 }
